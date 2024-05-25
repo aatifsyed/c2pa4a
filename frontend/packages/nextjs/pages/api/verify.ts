@@ -13,6 +13,7 @@ const localWalletClient = createWalletClient({
 const accounts = await localWalletClient.getAddresses();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  
   const pcd = await ZKEdDSAEventTicketPCDPackage.deserialize(req.body.pcd);
   const address = req.body.address;
 
