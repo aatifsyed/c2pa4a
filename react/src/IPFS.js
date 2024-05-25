@@ -1,11 +1,13 @@
-const axios = require('axios');
-const FormData = require('form-data');
-const PINATA_API_KEY = process.env.PINATA_API_KEY;
+import axios from 'axios';
+import FormData from 'form-data';
+import PINATA_API_KEY from "./env";
   
-/*file as fs.createReadStream*/
+/**
+ * filename is a string, file must be a File, Blob, or readableStream, see:
+ * https://docs.pinata.cloud/pinning/pinning-files#using-the-api
+ */
 const pinFileToIPFS = async (filename, file) => {
     const formData = new FormData();
-    const src = "path/to/file.png";
     
     formData.append('file', file)
     
@@ -24,10 +26,10 @@ const pinFileToIPFS = async (filename, file) => {
         maxBodyLength: "Infinity",
         headers: {
           'Content-Type': `multipart/form-data; boundary=${formData._boundary}`,
-          'Authorization': `Bearer ${JWT}`
+          'Authorization': `Bearer ${PINATA_API_KEY}`
         }
       });
-      console.log(res.data);
+      return res.data.IpfsHash;
     } catch (error) {
       console.log(error);
     }
