@@ -9,6 +9,7 @@ import { useScaffoldContractRead, useScaffoldContractWrite } from "~~/hooks/scaf
 import { notification } from "~~/utils/scaffold-eth";
 import { generateWitness, isETHBerlinPublicKey } from "~~/utils/scaffold-eth/pcd";
 import { ETHBERLIN_ZUAUTH_CONFIG } from "~~/utils/zupassConstants";
+import getGeolocation from '../components/geolocation/getGeolocation';
 
 // Get a valid event id from { supportedEvents } from "zuauth" or https://api.zupass.org/issue/known-ticket-types
 const fieldsToReveal = {
@@ -17,12 +18,41 @@ const fieldsToReveal = {
   revealProductId: true,
 };
 
+const Video = ({ dataURL }) => {
+  return (
+    <video src={dataURL}></video>
+  )
+}
+
 const Home: NextPage = () => {
   const [verifiedFrontend, setVerifiedFrontend] = useState(false);
   const [verifiedBackend, setVerifiedBackend] = useState(false);
   const [verifiedOnChain, setVerifiedOnChain] = useState(false);
   const { address: connectedAddress } = useAccount();
   const [pcd, setPcd] = useState<string>();
+  const [video, setVideo] = useState(null);
+  const [videoFile, setVideoFile] = useState(null);
+  const [coordinates, setCoordinates] = useState(null);
+  const [geoError, setGeoError] = useState(null);
+
+  const handleChange = (e) => {
+    let reader = new FileReader();
+    reader.onload = (e) => {
+      setVideo(e.target.result);
+    };
+    setVideoFile(e.target.files[0]);
+    reader.readAsDataURL(e.target.files[0]);
+  };
+
+  const fetchGeolocation = async () => {
+    try {
+      const { latitude, longitude } = await getGeolocation();
+      setCoordinates({ latitude, longitude });
+    } catch (error) {
+      setGeoError(error.message || 'An error occurred.');
+      console.error('Error:', error);
+    }
+  };
 
   const getProof = useCallback(async () => {
     if (!connectedAddress) {
@@ -37,63 +67,29 @@ const Home: NextPage = () => {
     }
   }, [connectedAddress]);
 
-  const verifyProofFrontend = async () => {
-    if (!pcd) {
-      notification.error("No PCD found!");
-      return;
-    }
-
-    if (!connectedAddress) {
-      notification.error("Please connect wallet");
-      return;
-    }
-    const deserializedPCD = await ZKEdDSAEventTicketPCDPackage.deserialize(pcd);
-
-    if (!(await ZKEdDSAEventTicketPCDPackage.verify(deserializedPCD))) {
-      notification.error(`[ERROR Frontend] ZK ticket PCD is not valid`);
-      return;
-    }
-
-    if (!isETHBerlinPublicKey(deserializedPCD.claim.signer)) {
-      notification.error(`[ERROR Frontend] PCD is not signed by ETHBerlin`);
-      return;
-    }
-
-    if (deserializedPCD.claim.watermark.toString() !== hexToBigInt(connectedAddress as `0x${string}`).toString()) {
-      notification.error(`[ERROR Frontend] PCD watermark doesn't match`);
-      return;
-    }
-
-    setVerifiedFrontend(true);
-    notification.success(
-      <>
-        <p className="font-bold m-0">Frontend Verified!</p>
-        <p className="m-0">
-          The proof has been verified
-          <br /> by the frontend.
-        </p>
-      </>,
-    );
-  };
-
   const sendPCDToServer = async () => {
+    if (!videoFile) {
+      notification.error("Please select a video file first.");
+      return;
+    }
+  
+    const formData = new FormData();
+    formData.append("pcd", pcd);
+    formData.append("address", connectedAddress);
+    formData.append("video", videoFile);
+    formData.append("coordinates", coordinates);
+  
     let response;
     try {
       response = await fetch("/api/verify", {
         method: "POST",
-        body: JSON.stringify({
-          pcd: pcd,
-          address: connectedAddress,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
+        body: formData,
       });
     } catch (e) {
       notification.error(`Error: ${e}`);
       return;
     }
-
+  
     const data = await response.json();
     setVerifiedBackend(true);
     notification.success(
@@ -130,52 +126,52 @@ const Home: NextPage = () => {
             <div className="flex justify-center">
               <h2 className="card-title text-2xl bold">Media Authenticity Verification Solution</h2>
             </div>
-            {/* <p className="mt-0">
-              Get started with{" "}
-              <a className="link" href="https://github.com/proofcarryingdata/zupass" target="_blank">
-                Zupass
-              </a>{" "}
-              to verify PCDs (Proof-Carrying Data). <span className="font-bold">e.g.</span> ETHBerlin tickets.
-            </p>
-            <p className="text-sm m-0">
-              - Check
-              <code className="mx-1 px-1 italic bg-base-300 font-bold max-w-full break-words break-all inline-block">
-                packages/nextjs/pages/index.tsx
-              </code>
-              to learn how to ask Zupass for a zero knowledge proof.
-            </p>
-            <p className="text-sm m-0">
-              - Check
-              <code className="mx-1 px-1 italic bg-base-300 font-bold max-w-full break-words break-all inline-block">
-                packages/nextjs/pages/api/verify.tsx
-              </code>
-              to learn how to verify the proof on the backend and execute any action (in this example it will send 1 ETH
-              to the connected address).
-            </p> */}
-            <div className="flex flex-col gap-4 mt-6">
-              <div className="tooltip" data-tip="Upload your video">
-                <button className="btn btn-secondary w-full tooltip" >
-                  {!pcd ? "1. Upload video" : "1. Video Uploaded"}
-                </button>
+            <div className="flex flex-col gap-4 mt-6 text-center">
+              <div className="flex flex-col gap-4 mb-6 text-center">
+                {video ? (
+                  <div className="aspect-video rounded-lg overflow-hidden">
+                    <Video dataURL={video} />
+                  </div>
+                ) : (
+                  <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center">
+                    <span className="text-gray-500">No video selected</span>
+                  </div>
+                )}
               </div>
+              <div>
+                <input
+                  type="file"
+                  id="input"
+                  onChange={handleChange}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="input"
+                  className="btn btn-primary w-full"
+                  disabled={video}
+                >
+                  {!video ? "1. Upload video" : "Video Uploaded"}
+                </label>
+              </div>
+
               <div className="tooltip" data-tip="Loads the Zupass UI in a modal, where you can prove your PCD.">
-                <button className="btn btn-secondary w-full tooltip" onClick={getProof} disabled={!!pcd}>
-                  {!pcd ? "2. Provide Proof of Identity" : "1. Proof Received!"}
+                <button className="btn btn-primary w-full tooltip" onClick={getProof} disabled={!video || pcd}>
+                  {!pcd ? "2. Provide Proof of Identity" : "Proof Received!"}
                 </button>
               </div>
               <div className="tooltip" data-tip="Provide your gps location">
                 <button
                   className="btn btn-primary w-full"
-                  disabled={!verifiedFrontend || verifiedBackend}
-                  onClick={sendPCDToServer}
+                  disabled={!pcd || coordinates}
+                  onClick={fetchGeolocation}
                 >
-                  3. Upload your GPS location
+                  {coordinates ? "GPS Location Received!" : "3. Provide GPS Location"}
                 </button>
               </div>
-              <div className="tooltip" data-tip="Send the PCD and video to the server to verify it and execute any action.">
+              <div className="tooltip" data-tip="Send the PCD and video to the server to verify it and execute embedding.">
                 <button
                   className="btn btn-primary w-full"
-                  disabled={!verifiedFrontend || verifiedBackend}
+                  disabled={!coordinates}
                   onClick={sendPCDToServer}
                 >
                   4. Verify and tag the video
