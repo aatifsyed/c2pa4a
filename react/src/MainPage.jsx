@@ -7,7 +7,7 @@ import './App.css'
 const Header = () => {
 
   return (
-    <Box bgColor='lightblue' padding='50px'>
+    <Box bgColor='#333' color='#fffd8d' padding='50px'>
       <HStack>
         <Text fontSize='2xl' as='b' spacing='20px'>C2PA4A</Text>
       </HStack>
