@@ -68,36 +68,48 @@ const Home: NextPage = () => {
   }, [connectedAddress]);
 
   const sendPCDToServer = async () => {
-    if (!videoFile) {
-      notification.error("Please select a video file first.");
+    if (!pcd || !connectedAddress || !videoFile || !coordinates) {
+      notification.error("Information required for verification missing");
       return;
     }
   
-    const formData = new FormData();
-    formData.append("pcd", pcd);
-    formData.append("address", connectedAddress);
-    formData.append("video", videoFile);
-    formData.append("coordinates", coordinates);
+    const reader = new FileReader();
+    reader.readAsDataURL(videoFile);
+    reader.onload = async () => {
+      const videoData = reader.result;
   
-    let response;
-    try {
-      response = await fetch("/api/verify", {
-        method: "POST",
-        body: formData,
-      });
-    } catch (e) {
-      notification.error(`Error: ${e}`);
-      return;
-    }
+      const requestData = {
+        pcd: pcd,
+        address: connectedAddress,
+        video: videoData,
+        coordinates: coordinates,
+      };
   
-    const data = await response.json();
-    setVerifiedBackend(true);
-    notification.success(
-      <>
-        <p className="font-bold m-0">Backend Verified!</p>
-        <p className="m-0">{data?.message}</p>
-      </>,
-    );
+      try {
+        const response = await fetch("/api/verify", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestData),
+        });
+  
+        if (response.ok) {
+          const data = await response.json();
+          setVerifiedBackend(true);
+          notification.success(
+            <>
+              <p className="font-bold m-0">Backend Verified!</p>
+              <p className="m-0">{data?.message}</p>
+            </>,
+          );
+        } else {
+          throw new Error("Error sending data to the API");
+        }
+      } catch (error) {
+        notification.error(`Error: ${error.message}`);
+      }
+    };
   };
 
   // mintItem verifies the proof on-chain and mints an NFT
