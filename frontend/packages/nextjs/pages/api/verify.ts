@@ -13,9 +13,20 @@ const localWalletClient = createWalletClient({
 const accounts = await localWalletClient.getAddresses();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  
-  const pcd = await ZKEdDSAEventTicketPCDPackage.deserialize(req.body.pcd);
-  const address = req.body.address;
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Method not allowed" });
+  }
+
+  const { pcd: pcdStr, address, coordinates, video } = req.body;
+
+  // Parse the PCD string
+  const pcd = await ZKEdDSAEventTicketPCDPackage.deserialize(pcdStr);
+
+  console.log(`[INFO] PCD String:`, pcdStr);
+  console.log(`[INFO] PCD:`, pcd);
+  console.log(`[INFO] Address:`, address);
+  console.log(`[INFO] Coordinates:`, coordinates);
+
 
   // ## Validations
   if (!isAddress(address)) {
@@ -46,11 +57,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // ## Actions
   // Send ETH to the user. This is just for testing purposes, and it could be any backend action.
-  const result = await localWalletClient.sendTransaction({
-    to: req.body.address,
-    value: parseEther("1"),
-    account: accounts[0],
-  });
+  // const result = await localWalletClient.sendTransaction({
+  //   to: req.body.address,
+  //   value: parseEther("1"),
+  //   account: accounts[0],
+  // });
 
-  return res.status(200).json({ message: `🎉 PCD verified! 1 ETH has been sent to ${address}!`, txHash: result });
+  return res.status(200).json({ message: `🎉 PCD verified!`});
 }
