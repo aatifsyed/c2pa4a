@@ -1,1 +1,5 @@
 *.ignoreme
+*.swp
+*.swo
+
+node_modules/
