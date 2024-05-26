@@ -16,7 +16,7 @@ import getGeolocation from '../components/geolocation/getGeolocation';
 
 // Get a valid event id from { supportedEvents } from "zuauth" or https://api.zupass.org/issue/known-ticket-types
 const fieldsToReveal = {
-  revealAttendeeEmail: true,
+  // revealAttendeeEmail: true,
   revealEventId: true,
   revealProductId: true,
 };
