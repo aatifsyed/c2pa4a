@@ -10,6 +10,7 @@ import { notification } from "~~/utils/scaffold-eth";
 import { generateWitness, isETHBerlinPublicKey } from "~~/utils/scaffold-eth/pcd";
 import { ETHBERLIN_ZUAUTH_CONFIG } from "~~/utils/zupassConstants";
 import { b58ToHex } from '../common'
+import axios from 'axios';
 import pinFileToIPFS from '../IPFS'
 import getGeolocation from '../components/geolocation/getGeolocation';
 
@@ -34,6 +35,7 @@ const Home: NextPage = () => {
   const [pcd, setPcd] = useState<string>();
   const [video, setVideo] = useState(null);
   const [videoFile, setVideoFile] = useState(null);
+  const [signedVideo, setSignedVideo] = useState(null);
   const [fileHash, setFileHash] = useState('0xfce000106bf7ed55bd19e1bc9b67442efabb3ad20d66ce459238a0181037556c');
   const [signature, setSignature] = useState('0x74dddd29671a629c463d14799b4b026f7810e540884191ec624fa20ce35fa3f7');
   const [ipfsCID, setIpfsCID] = useState(null);
@@ -83,34 +85,29 @@ const Home: NextPage = () => {
     reader.onload = async () => {
       const videoData = reader.result;
   
+      const pcdJSON = JSON.parse(pcd);
       const requestData = {
-        pcd: pcd,
-        address: connectedAddress,
-        video: videoData,
-        coordinates: coordinates,
+        input: videoData,
+        extension: 'mp4', //TODO: Should be parsed
+        lat: coordinates.latitude,
+        lon: coordinates.longitude,
+        author: connectedAddress,
+        proof: pcdJSON.proof,
       };
+      console.log('requestData');
+      console.log(requestData)
   
       try {
-        const response = await fetch("/api/verify", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestData),
-        });
+        const res = await axios.post('http://localhost:8080', requestData);
   
-        if (response.ok) {
-          const data = await response.json();
-          setVerifiedBackend(true);
-          notification.success(
-            <>
-              <p className="font-bold m-0">Backend Verified!</p>
-              <p className="m-0">{data?.message}</p>
-            </>,
-          );
-        } else {
-          throw new Error("Error sending data to the API");
-        }
+        setVerifiedBackend(true);
+        setSignedVideo(res.body);
+        notification.success(
+          <>
+            <p className="font-bold m-0">Backend Verified!</p>
+            <p className="m-0">{data?.message}</p>
+          </>,
+        );
       } catch (error) {
         notification.error(`Error: ${error.message}`);
       }
@@ -203,7 +200,7 @@ const Home: NextPage = () => {
               <div className="tooltip" data-tip="Store the video on IPFS.">
                 <button
                   className="btn btn-primary w-full"
-                  disabled={/*!verifiedBackend || verifiedOnChain*/ false}
+                  disabled={/*!verifiedBackend || verifiedOnChain*/ ipfsCID}
                   onClick={async () => {
                     try {
                       const ipfsCID = await pinFileToIPFS('File', videoFile);
@@ -215,13 +212,13 @@ const Home: NextPage = () => {
                     }
                   }}
                 >
-                  {isMintingNFT ? <span className="loading loading-spinner"></span> : "5. Store video on IPFS"}
+                  {ipfsCID ? "Video stored on IPFS!" : "5. Store video on IPFS"}
                 </button>
               </div>
               <div className="tooltip" data-tip="Submit the proof to a smart contract to verify it on-chain.">
                 <button
                   className="btn btn-primary w-full"
-                  disabled={/*!verifiedBackend || verifiedOnChain*/ false}
+                  disabled={/*!verifiedBackend || verifiedOnChain*/ verifiedOnChain}
                   onClick={async () => {
                     try {
                       await writeZKMAVAsync();
@@ -232,7 +229,7 @@ const Home: NextPage = () => {
                     setVerifiedOnChain(true);
                   }}
                 >
-                  {isMintingNFT ? <span className="loading loading-spinner"></span> : "6. Verify (on-chain) and mint proof token"}
+                  {verifiedOnChain ? "Video verified on-chain!" : "6. Verify (on-chain) and mint proof token"}
                 </button>
               </div>
               <div className="flex justify-center">
