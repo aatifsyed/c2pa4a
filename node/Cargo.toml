@@ -6,13 +6,11 @@ publish = false
 
 [dependencies]
 anyhow = "1.0.86"
-axum = "0.7.5"
 base64 = "0.22.1"
 c2pa = { version = "0.32.1", features = ["openssl_sign", "file_io"] }
 clap = { version = "4.5.4", features = ["derive"] }
+http = "1.1.0"
 oxhttp = "0.2.0"
-rcgen = "0.13.1"
 serde = { version = "1.0.203", features = ["derive"] }
 serde_json = "1.0.117"
 tempfile = "3.10.1"
-tokio = { version = "1.37.0", features = ["full"] }
