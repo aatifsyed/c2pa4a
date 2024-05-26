@@ -67,13 +67,18 @@ struct Params {
 
 fn handle(req: &mut Request, c2patool: &Path) -> anyhow::Result<Response> {
     let Params {
-        input,
+        mut input,
         extension,
         lat,
         lon,
         author,
         proof,
     } = serde_json::from_reader(req.body_mut())?;
+    if input.starts_with("data:") {
+        let needle = "base64,";
+        let ix = input.find(needle).context("data URL must be base64")?;
+        input = String::from(&input[(ix + needle.len())..]);
+    }
     let input = base64::engine::general_purpose::STANDARD.decode(input)?;
     let output = with_attestations(c2patool, &*input, extension, lat, lon, &author, proof)?;
     let response = Response::builder(Status::OK)
