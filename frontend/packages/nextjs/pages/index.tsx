@@ -200,7 +200,7 @@ const Home: NextPage = () => {
               <div className="tooltip" data-tip="Store the video on IPFS.">
                 <button
                   className="btn btn-primary w-full"
-                  disabled={/*!verifiedBackend || verifiedOnChain*/ ipfsCID}
+                  disabled={!verifiedBackend || ipfsCID}
                   onClick={async () => {
                     try {
                       const ipfsCID = await pinFileToIPFS('File', videoFile);
@@ -218,7 +218,7 @@ const Home: NextPage = () => {
               <div className="tooltip" data-tip="Submit the proof to a smart contract to verify it on-chain.">
                 <button
                   className="btn btn-primary w-full"
-                  disabled={/*!verifiedBackend || verifiedOnChain*/ verifiedOnChain}
+                  disabled={!ipfsCID || verifiedOnChain}
                   onClick={async () => {
                     try {
                       await writeZKMAVAsync();
