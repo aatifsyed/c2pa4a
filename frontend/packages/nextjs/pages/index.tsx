@@ -88,29 +88,18 @@ const Home: NextPage = () => {
       const pcdJSON = JSON.parse(pcd);
       const requestData = {
         input: videoData,
-        extension: 'mp4', //TODO: Should be parsed
+        extension: 'mp4',
         lat: coordinates.latitude,
         lon: coordinates.longitude,
         author: connectedAddress,
-        proof: pcdJSON.proof,
+        proof: null,
       };
       console.log('requestData');
       console.log(requestData)
+
+    
   
-      try {
-        const res = await axios.post('http://localhost:8080', requestData);
-  
-        setVerifiedBackend(true);
-        setSignedVideo(res.body);
-        notification.success(
-          <>
-            <p className="font-bold m-0">Backend Verified!</p>
-            <p className="m-0">{data?.message}</p>
-          </>,
-        );
-      } catch (error) {
-        notification.error(`Error: ${error.message}`);
-      }
+      
     };
   };
 
