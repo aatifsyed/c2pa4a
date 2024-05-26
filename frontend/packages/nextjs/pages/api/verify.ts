@@ -4,6 +4,15 @@ import { hexToBigInt } from "viem";
 import { createWalletClient, http, isAddress, parseEther } from "viem";
 import { hardhat } from "viem/chains";
 import { isETHBerlinPublicKey } from "~~/utils/scaffold-eth/pcd";
+const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+
+export const config = {
+  api: {
+    responseLimit: '50mb',
+  },
+}
 
 const localWalletClient = createWalletClient({
   chain: hardhat,
@@ -13,19 +22,14 @@ const localWalletClient = createWalletClient({
 const accounts = await localWalletClient.getAddresses();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ message: "Method not allowed" });
-  }
 
-  const { pcd: pcdStr, address, coordinates, video } = req.body;
+  console.log(req.body)
+
+  const { input, extension, lat, lon, author, proof } = req.body;
 
   // Parse the PCD string
-  const pcd = await ZKEdDSAEventTicketPCDPackage.deserialize(pcdStr);
-
-  console.log(`[INFO] PCD String:`, pcdStr);
-  console.log(`[INFO] PCD:`, pcd);
-  console.log(`[INFO] Address:`, address);
-  console.log(`[INFO] Coordinates:`, coordinates);
+  const pcd = await ZKEdDSAEventTicketPCDPackage.deserialize(proof);
+  const address = author;
 
 
   // ## Validations
@@ -63,5 +67,91 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   //   account: accounts[0],
   // });
 
-  return res.status(200).json({ message: `🎉 PCD verified!`});
+  try {
+    // Extract the base64 video data from the input string
+    const base64Video = input.split(',')[1];
+
+    // Create a manifest JSON object
+    const manifestJson = {
+      // Add your manifest properties here
+      // Example:
+      assertions: [
+        {
+          label: 'org.contentauth.test',
+          data: {
+            latitude: lat,
+            longitude: lon,
+            author: address,
+          },
+        },
+      ],
+    };
+
+    // Sign the video with the manifest using c2patool
+    const signedVideoBase64 = await signVideoWithManifest(base64Video, manifestJson);
+
+    // Return the signed video base64 data as the response
+    res.status(200).json({ signedVideo: signedVideoBase64 });
+  } catch (error) {
+    console.error('Error signing video:', error);
+    res.status(500).json({ error: 'Failed to sign video' });
+  }
+}
+
+
+// Helper function to sign the video with the manifest
+
+
+function signVideoWithManifest(base64Video, manifestJson) {
+  return new Promise((resolve, reject) => {
+    // Create a temporary directory
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c2pa-'));
+
+    // Create temporary input and output file paths
+    const tempInputPath = path.join(tempDir, 'input.mp4');
+    const tempOutputPath = path.join(tempDir, 'signed.mp4');
+
+    // Convert the base64 video to a Buffer
+    const videoBuffer = Buffer.from(base64Video, 'base64');
+
+    // Write the video buffer to the temporary input file
+    fs.writeFileSync(tempInputPath, videoBuffer);
+
+    // Convert the manifest JSON to a string
+    const manifestString = JSON.stringify(manifestJson);
+
+    // Spawn the c2patool process
+    const c2patool = spawn('c2patool', [
+      tempInputPath,
+      '-m', '-', // Use - to read the manifest from stdin
+      '-o', tempOutputPath, // Output to the temporary file
+    ]);
+
+    // Write the manifest to the c2patool's stdin
+    c2patool.stdin.write(manifestString);
+    c2patool.stdin.end();
+
+    // Collect the stderr output
+    let stderr = '';
+    c2patool.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    // Wait for the c2patool process to exit
+    c2patool.on('close', (code) => {
+      if (code === 0) {
+        // Read the signed video file as base64
+        const signedVideoBase64 = fs.readFileSync(tempOutputPath, 'base64');
+
+        // Clean up the temporary directory and files
+        fs.rmdirSync(tempDir, { recursive: true });
+
+        resolve(signedVideoBase64);
+      } else {
+        // Clean up the temporary directory and files
+        fs.rmdirSync(tempDir, { recursive: true });
+        reject(new Error(`c2patool exited with code ${code}. stderr: ${stderr}`));
+      }
+    });
+  });
 }
