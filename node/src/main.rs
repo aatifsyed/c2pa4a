@@ -1,15 +1,25 @@
 //! Getting [`c2pa`] to work in-memory was too much for my little brain, so have
 //! a hacky server around it instead.
+//!
+//! To get started:
+//! 1. [install c2patool](https://github.com/contentauth/c2patool?tab=readme-ov-file#installation)
+//! 2. [install Rust](https://www.rust-lang.org/tools/install)
+//! 3. run `cargo serve` in the root of the repo
+//!
+//! Use the [verify](https://contentcredentials.org/verify) tool to see (some of)
+//! the metadata.
+//! Hack in [anchors.pem](https://github.com/contentauth/c2patool/raw/main/sample/trust_anchors.pem)
+//! to get the tool to trust you.
 
 use std::{
     borrow::Cow,
     fs, io,
-    net::SocketAddr,
+    net::ToSocketAddrs as _,
     path::{Path, PathBuf},
     process::Command,
 };
 
-use anyhow::ensure;
+use anyhow::{ensure, Context};
 use base64::Engine as _;
 use clap::Parser;
 use oxhttp::{
@@ -21,8 +31,10 @@ use serde_json::{json, Value};
 
 #[derive(Parser)]
 struct Args {
+    /// local address/socket to listen on
     #[arg(long)]
-    bind: SocketAddr,
+    bind: String,
+    /// Path to `c2patool`
     #[arg(long, default_value = "c2patool")]
     c2patool: PathBuf,
 }
@@ -34,7 +46,7 @@ fn main() -> anyhow::Result<()> {
             Response::builder(Status::INTERNAL_SERVER_ERROR).with_body(format!("{:?}", e))
         })
     })
-    .bind(bind)
+    .bind(bind.to_socket_addrs()?.next().context("no socket addrs")?)
     .spawn()?
     .join()?;
     Ok(())

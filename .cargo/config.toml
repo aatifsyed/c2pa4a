@@ -1,2 +1,2 @@
 [alias]
-r = "run --manifest-path ./node/Cargo.toml"
+serve = "run --manifest-path ./node/Cargo.toml --"
