@@ -41,6 +41,7 @@ const Home: NextPage = () => {
   const [ipfsCID, setIpfsCID] = useState(null);
   const [coordinates, setCoordinates] = useState({longitude: null, latitude: null});
   const [geoError, setGeoError] = useState(null);
+  const [verificationMetadata, setVerificationMetadata] = useState({});
 
   const handleChange = (e) => {
     let reader = new FileReader();
@@ -82,25 +83,23 @@ const Home: NextPage = () => {
   
     const reader = new FileReader();
     reader.readAsDataURL(videoFile);
-    reader.onload = async () => {
-      const videoData = reader.result;
-  
-      const pcdJSON = JSON.parse(pcd);
-      const requestData = {
-        input: videoData,
-        extension: 'mp4',
-        lat: coordinates.latitude,
-        lon: coordinates.longitude,
-        author: connectedAddress,
-        proof: null,
+    const fileDataURL = await new Promise(resolve => {
+      reader.onload = () => {
+        resolve(reader.result);
       };
-      console.log('requestData');
-      console.log(requestData)
-
-    
+    });
   
-      
-    };
+    const pcdJSON = JSON.parse(pcd);
+    const requestData = {
+      input: fileDataURL,
+      extension: 'mp4',
+      lat: coordinates.latitude,
+      lon: coordinates.longitude,
+      author: connectedAddress,
+      proof: null,
+    }
+    console.log(requestData);
+    setVerificationMetadata(requestData);
   };
 
   // mintItem verifies the proof on-chain and mints an NFT
@@ -143,7 +142,7 @@ const Home: NextPage = () => {
                   </div>
                 ) : (
                   <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center">
-                    <span className="text-gray-500">No video selected</span>
+                    <span className="text-gray-500">No image / video selected</span>
                   </div>
                 )}
               </div>
@@ -159,7 +158,7 @@ const Home: NextPage = () => {
                   className="btn btn-primary w-full"
                   disabled={video}
                 >
-                  {!video ? "1. Upload video" : "Video Uploaded"}
+                  {!video ? "1. Upload image / video" : "Media Uploaded"}
                 </label>
               </div>
 
@@ -178,6 +177,12 @@ const Home: NextPage = () => {
                 </button>
               </div>
               <div className="tooltip" data-tip="Send the PCD and video to the server to verify it and execute embedding.">
+                <div className="bg-gray-200 p-4 mb-4 rounded shadow-md max-h-40 overflow-y-auto">
+                  <pre className="text-sm">
+                    {verificationMetadata ? JSON.stringify(verificationMetadata, null, 2) : ''}
+                  </pre>
+                </div>
+                
                 <button
                   className="btn btn-primary w-full"
                   disabled={!coordinates.longitude}
