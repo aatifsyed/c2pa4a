@@ -32,7 +32,10 @@ const Home: NextPage = () => {
   const [pcd, setPcd] = useState<string>();
   const [video, setVideo] = useState(null);
   const [videoFile, setVideoFile] = useState(null);
-  const [coordinates, setCoordinates] = useState(null);
+  const [fileHash, setFileHash] = useState('0xfce000106bf7ed55bd19e1bc9b67442efabb3ad20d66ce459238a0181037556c');
+  const [signature, setSignature] = useState('0x74dddd29671a629c463d14799b4b026f7810e540884191ec624fa20ce35fa3f7');
+  const [ipfsCID, setIpfsCID] = useState('0x3062fee938a12dd64ba0b1380aee47e139c0b11382ef0bd9f2e055e89e2599ab');
+  const [coordinates, setCoordinates] = useState({longitude: null, latitude: null});
   const [geoError, setGeoError] = useState(null);
 
   const handleChange = (e) => {
@@ -68,7 +71,7 @@ const Home: NextPage = () => {
   }, [connectedAddress]);
 
   const sendPCDToServer = async () => {
-    if (!pcd || !connectedAddress || !videoFile || !coordinates) {
+    if (!pcd || !connectedAddress || !videoFile || !coordinates.longitude) {
       notification.error("Information required for verification missing");
       return;
     }
@@ -126,6 +129,12 @@ const Home: NextPage = () => {
     args: [connectedAddress],
   });
 
+  const { writeAsync: writeZKMAVAsync } = useScaffoldContractWrite({
+    contractName: 'ZKMAV',
+    functionName: 'upload',
+    args: [fileHash, signature, ipfsCID, (coordinates.longitude * 10**7), (coordinates.latitude * 10**7)]
+  });
+
   return (
     <>
       <MetaHeader />
@@ -174,36 +183,19 @@ const Home: NextPage = () => {
               <div className="tooltip" data-tip="Provide your gps location">
                 <button
                   className="btn btn-primary w-full"
-                  disabled={!pcd || coordinates}
+                  disabled={!pcd || coordinates.longitude}
                   onClick={fetchGeolocation}
                 >
-                  {coordinates ? "GPS Location Received!" : "3. Provide GPS Location"}
+                  {coordinates.longitude ? "GPS Location Received!" : "3. Provide GPS Location"}
                 </button>
               </div>
               <div className="tooltip" data-tip="Send the PCD and video to the server to verify it and execute embedding.">
                 <button
                   className="btn btn-primary w-full"
-                  disabled={!coordinates}
+                  disabled={!coordinates.longitude}
                   onClick={sendPCDToServer}
                 >
                   4. Verify and tag the video
-                </button>
-              </div>
-              <div className="tooltip" data-tip="Submit the proof to a smart contract to verify it on-chain.">
-                <button
-                  className="btn btn-primary w-full"
-                  disabled={!verifiedBackend || verifiedOnChain}
-                  onClick={async () => {
-                    try {
-                      await mintNFT();
-                    } catch (e) {
-                      notification.error(`Error: ${e}`);
-                      return;
-                    }
-                    setVerifiedOnChain(true);
-                  }}
-                >
-                  {isMintingNFT ? <span className="loading loading-spinner"></span> : "5. Verify (on-chain) and mint proof token"}
                 </button>
               </div>
               <div className="tooltip" data-tip="Store the video on IPFS.">
@@ -220,7 +212,24 @@ const Home: NextPage = () => {
                     setVerifiedOnChain(true);
                   }}
                 >
-                  {isMintingNFT ? <span className="loading loading-spinner"></span> : "6. Store video on IPFS"}
+                  {isMintingNFT ? <span className="loading loading-spinner"></span> : "5. Store video on IPFS"}
+                </button>
+              </div>
+              <div className="tooltip" data-tip="Submit the proof to a smart contract to verify it on-chain.">
+                <button
+                  className="btn btn-primary w-full"
+                  disabled={/*!verifiedBackend || verifiedOnChain*/ false}
+                  onClick={async () => {
+                    try {
+                      await writeZKMAVAsync();
+                    } catch (e) {
+                      notification.error(`Error: ${e}`);
+                      return;
+                    }
+                    setVerifiedOnChain(true);
+                  }}
+                >
+                  {isMintingNFT ? <span className="loading loading-spinner"></span> : "6. Verify (on-chain) and mint proof token"}
                 </button>
               </div>
               <div className="flex justify-center">
