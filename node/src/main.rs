@@ -23,7 +23,7 @@ use anyhow::{ensure, Context};
 use base64::Engine as _;
 use clap::Parser;
 use oxhttp::{
-    model::{Request, Response, Status},
+    model::{Method, Request, Response, Status},
     Server,
 };
 use serde::Deserialize;
@@ -43,6 +43,7 @@ fn main() -> anyhow::Result<()> {
     let Args { bind, c2patool } = Args::parse();
     Server::new(move |req| {
         handle(req, &c2patool).unwrap_or_else(|e| {
+            dbg!(req);
             Response::builder(Status::INTERNAL_SERVER_ERROR).with_body(format!("{:?}", e))
         })
     })
@@ -66,17 +67,29 @@ struct Params {
 }
 
 fn handle(req: &mut Request, c2patool: &Path) -> anyhow::Result<Response> {
+    if *req.method() == Method::OPTIONS {
+        return Ok(Response::builder(Status::NOT_IMPLEMENTED).with_body(vec![]));
+    }
     let Params {
-        input,
+        mut input,
         extension,
         lat,
         lon,
         author,
         proof,
     } = serde_json::from_reader(req.body_mut())?;
+    if input.starts_with("data:") {
+        let needle = "base64,";
+        let ix = input.find(needle).context("data URL must be base64")?;
+        input = String::from(&input[(ix + needle.len())..]);
+    }
     let input = base64::engine::general_purpose::STANDARD.decode(input)?;
     let output = with_attestations(c2patool, &*input, extension, lat, lon, &author, proof)?;
-    Ok(Response::builder(Status::OK).with_body(output))
+    let response = Response::builder(Status::OK)
+        .with_header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN.as_str(), "*")
+        .unwrap()
+        .with_body(output);
+    Ok(response)
 }
 
 fn with_attestations(

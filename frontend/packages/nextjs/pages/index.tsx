@@ -88,7 +88,7 @@ const Home: NextPage = () => {
       const pcdJSON = JSON.parse(pcd);
       const requestData = {
         input: videoData,
-        extension: 'mp4', //TODO: Should be parsed
+        extension: 'png', //TODO: Should be parsed :^)
         lat: coordinates.latitude,
         lon: coordinates.longitude,
         author: connectedAddress,
@@ -98,7 +98,11 @@ const Home: NextPage = () => {
       console.log(requestData)
   
       try {
-        const res = await axios.post('http://localhost:8080', requestData);
+        const res = await axios.post('http://localhost:8080', requestData, {
+          headers: {
+            "Access-Control-Allow-Origin": "*"
+          }
+        });
   
         setVerifiedBackend(true);
         setSignedVideo(res.body);
