@@ -491,6 +491,122 @@ const deployedContracts = {
         },
       ],
     },
+    ZKMAV: {
+      address: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      abi: [
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: false,
+              internalType: "bytes32",
+              name: "fileHash",
+              type: "bytes32",
+            },
+            {
+              indexed: false,
+              internalType: "bytes32",
+              name: "signature",
+              type: "bytes32",
+            },
+            {
+              indexed: false,
+              internalType: "bytes32",
+              name: "ipfsCID",
+              type: "bytes32",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "longitude",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "latitude",
+              type: "uint256",
+            },
+          ],
+          name: "Upload",
+          type: "event",
+        },
+        {
+          inputs: [
+            {
+              internalType: "bytes32",
+              name: "fileHash",
+              type: "bytes32",
+            },
+            {
+              internalType: "bytes32",
+              name: "signature",
+              type: "bytes32",
+            },
+            {
+              internalType: "bytes32",
+              name: "ipfsCID",
+              type: "bytes32",
+            },
+            {
+              internalType: "uint256",
+              name: "longitude",
+              type: "uint256",
+            },
+            {
+              internalType: "uint256",
+              name: "latitude",
+              type: "uint256",
+            },
+          ],
+          name: "upload",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "bytes32",
+              name: "",
+              type: "bytes32",
+            },
+          ],
+          name: "uploadedData",
+          outputs: [
+            {
+              internalType: "bytes32",
+              name: "signature",
+              type: "bytes32",
+            },
+            {
+              internalType: "bytes32",
+              name: "ipfsCID",
+              type: "bytes32",
+            },
+            {
+              components: [
+                {
+                  internalType: "uint256",
+                  name: "longitude",
+                  type: "uint256",
+                },
+                {
+                  internalType: "uint256",
+                  name: "latitude",
+                  type: "uint256",
+                },
+              ],
+              internalType: "struct ZKMAV.Location",
+              name: "location",
+              type: "tuple",
+            },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+      ],
+    },
   },
 } as const;
 
