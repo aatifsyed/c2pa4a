@@ -9,6 +9,8 @@ import { useScaffoldContractRead, useScaffoldContractWrite } from "~~/hooks/scaf
 import { notification } from "~~/utils/scaffold-eth";
 import { generateWitness, isETHBerlinPublicKey } from "~~/utils/scaffold-eth/pcd";
 import { ETHBERLIN_ZUAUTH_CONFIG } from "~~/utils/zupassConstants";
+import { b58ToHex } from '../common'
+import pinFileToIPFS from '../IPFS'
 import getGeolocation from '../components/geolocation/getGeolocation';
 
 // Get a valid event id from { supportedEvents } from "zuauth" or https://api.zupass.org/issue/known-ticket-types
@@ -34,7 +36,7 @@ const Home: NextPage = () => {
   const [videoFile, setVideoFile] = useState(null);
   const [fileHash, setFileHash] = useState('0xfce000106bf7ed55bd19e1bc9b67442efabb3ad20d66ce459238a0181037556c');
   const [signature, setSignature] = useState('0x74dddd29671a629c463d14799b4b026f7810e540884191ec624fa20ce35fa3f7');
-  const [ipfsCID, setIpfsCID] = useState('0x3062fee938a12dd64ba0b1380aee47e139c0b11382ef0bd9f2e055e89e2599ab');
+  const [ipfsCID, setIpfsCID] = useState(null);
   const [coordinates, setCoordinates] = useState({longitude: null, latitude: null});
   const [geoError, setGeoError] = useState(null);
 
@@ -132,7 +134,7 @@ const Home: NextPage = () => {
   const { writeAsync: writeZKMAVAsync } = useScaffoldContractWrite({
     contractName: 'ZKMAV',
     functionName: 'upload',
-    args: [fileHash, signature, ipfsCID, (coordinates.longitude * 10**7), (coordinates.latitude * 10**7)]
+    args: [fileHash, signature, '0x' + b58ToHex(ipfsCID).substring(4), (coordinates.longitude * 10**7), (coordinates.latitude * 10**7)]
   });
 
   return (
@@ -201,15 +203,16 @@ const Home: NextPage = () => {
               <div className="tooltip" data-tip="Store the video on IPFS.">
                 <button
                   className="btn btn-primary w-full"
-                  disabled={!verifiedBackend || verifiedOnChain}
+                  disabled={/*!verifiedBackend || verifiedOnChain*/ false}
                   onClick={async () => {
                     try {
-                      await mintNFT();
+                      const ipfsCID = await pinFileToIPFS('File', videoFile);
+                      notification.success(`Video uploaded to ${ipfsCID}`);
+                      setIpfsCID(ipfsCID);
                     } catch (e) {
                       notification.error(`Error: ${e}`);
                       return;
                     }
-                    setVerifiedOnChain(true);
                   }}
                 >
                   {isMintingNFT ? <span className="loading loading-spinner"></span> : "5. Store video on IPFS"}
