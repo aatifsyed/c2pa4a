@@ -96,7 +96,7 @@ const Home: NextPage = () => {
       lat: coordinates.latitude,
       lon: coordinates.longitude,
       author: connectedAddress,
-      proof: null,
+      proof: pcdJSON,
     }
     console.log(requestData);
     setVerificationMetadata(requestData);
