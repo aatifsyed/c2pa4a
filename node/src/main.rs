@@ -2,49 +2,79 @@
 //! a hacky server around it instead.
 
 use std::{
-    fs::{self, File},
-    io::{self, Cursor, Read, Write},
-    path::PathBuf,
+    borrow::Cow,
+    fs, io,
+    net::SocketAddr,
+    path::{Path, PathBuf},
     process::Command,
 };
 
-use anyhow::{ensure, Context};
-use c2pa::{Manifest, Signer, SigningAlg};
+use anyhow::ensure;
+use base64::Engine as _;
 use clap::Parser;
 use oxhttp::{
     model::{Request, Response, Status},
     Server,
 };
-use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde::Deserialize;
+use serde_json::{json, Value};
 
 #[derive(Parser)]
 struct Args {
     #[arg(long)]
-    ext: SupportedFileExtension,
-    #[arg(long)]
-    lat: f64,
-    #[arg(long)]
-    lon: f64,
-    path: PathBuf,
+    bind: SocketAddr,
+    #[arg(long, default_value = "c2patool")]
+    c2patool: PathBuf,
 }
 
 fn main() -> anyhow::Result<()> {
-    let Args {
-        ext,
-        lat,
-        lon,
-        path,
-    } = Args::parse();
-    io::stdout().write_all(&with_attestations(File::open(path)?, ext, lat, lon)?)?;
+    let Args { bind, c2patool } = Args::parse();
+    Server::new(move |req| {
+        handle(req, &c2patool).unwrap_or_else(|e| {
+            Response::builder(Status::INTERNAL_SERVER_ERROR).with_body(format!("{:?}", e))
+        })
+    })
+    .bind(bind)
+    .spawn()?
+    .join()?;
     Ok(())
 }
 
+#[derive(Deserialize)]
+struct Params {
+    /// base64 Encoded image
+    input: String,
+    /// "jpg" / "png" / ...
+    extension: SupportedFileExtension,
+    lat: f64,
+    lon: f64,
+    author: String,
+    /// any JSON value
+    proof: Value,
+}
+
+fn handle(req: &mut Request, c2patool: &Path) -> anyhow::Result<Response> {
+    let Params {
+        input,
+        extension,
+        lat,
+        lon,
+        author,
+        proof,
+    } = serde_json::from_reader(req.body_mut())?;
+    let input = base64::engine::general_purpose::STANDARD.decode(input)?;
+    let output = with_attestations(c2patool, &*input, extension, lat, lon, &author, proof)?;
+    Ok(Response::builder(Status::OK).with_body(output))
+}
+
 fn with_attestations(
+    c2patool: &Path,
     mut input: impl io::Read,
     format: SupportedFileExtension,
     lat: f64,
     lon: f64,
+    author_name: &str,
+    proof: Value,
 ) -> anyhow::Result<Vec<u8>> {
     let suffix = format!(".{}", format);
     let mut shim_input = tempfile::Builder::new().suffix(&suffix).tempfile()?;
@@ -55,7 +85,7 @@ fn with_attestations(
         .tempfile()?
         .into_temp_path();
 
-    let mut cmd = Command::new("c2patool");
+    let mut cmd = Command::new(c2patool);
     cmd.arg(shim_input.path())
         .arg("--config")
         .arg(
@@ -63,9 +93,23 @@ fn with_attestations(
                 {
                     "label": "stds.exif",
                     "data": {
-                        "EXIF:GPSLatitude": lat,
-                        "EXIF:GPSLongitude": lon,
+                        "EXIF:GPSLatitude": lat.to_string(),  // must be str to be
+                        "EXIF:GPSLongitude": lon.to_string(), // displayed in UI
                     }
+                },
+                {
+                    "label": "stds.schema-org.CreativeWork",
+                    "data": {
+                        "author": [
+                            {
+                                "name": author_name
+                            }
+                        ]
+                    },
+                },
+                {
+                    "label": "cp4a.zkproof",
+                    "data": proof,
                 }
             ]})
             .to_string(),
@@ -154,5 +198,16 @@ strum! {
         Tif = "tif",
         Wav = "wav",
         Webp = "webp",
+    }
+}
+
+impl<'de> Deserialize<'de> for SupportedFileExtension {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Cow::<str>::deserialize(deserializer)?
+            .parse()
+            .map_err(serde::de::Error::custom)
     }
 }
