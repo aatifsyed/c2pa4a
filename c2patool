@@ -1,0 +1,22 @@
+#!/usr/bin/env dotslash
+{
+    "$schema": "./schema.json",
+    "name": "c2patool",
+    "platforms": {
+        "linux-x86_64": {
+            "providers": [
+                {
+                    "type": "github-release",
+                    "repo": "contentauth/c2patool",
+                    "tag": "v0.9.12",
+                    "name": "c2patool-v0.9.12-x86_64-unknown-linux-gnu.tar.gz"
+                }
+            ],
+            "format": "tar.gz",
+            "path": "c2patool/c2patool",
+            "size": 8345022,
+            "hash": "sha256",
+            "digest": "caa336747d5364e21e0eb7a307c108b6680b237ff8b8aa5ed94ab8e43d64214c"
+        },
+    }
+}

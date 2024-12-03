@@ -1,2 +1,2 @@
 [alias]
-serve = "run --manifest-path ./node/Cargo.toml --"
+serve = "run --quiet --manifest-path ./node/Cargo.toml -- --c2patool ./c2patool --bind"
